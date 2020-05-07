@@ -18,14 +18,14 @@ GENERATE_RES = 2
 GENERATE_SQUARE = 32 * GENERATE_RES
 IMAGE_CHANNELS = 3
 
-PREVIEW_ROWS = 4
-PREVIEW_COLS = 4
+PREVIEW_ROWS = 1
+PREVIEW_COLS = 1
 PREVIEW_MARGIN = 16
 SAVE_FREQ = 10
 
 SEED_SIZE = 100
 
-EPOCHS = 1000
+EPOCHS = 10000
 BATCH_SIZE = 32
 
 
@@ -48,7 +48,6 @@ if not os.path.isfile(training_binary_path):
   print("Loading training images...")
 
   training_data = []
-  #a = os.path.join('dataset/test_set/cats/')
   trainingDataDir = os.path.join(DATA_PATH, trainingDataName)
   for filename in tqdm(os.listdir(trainingDataDir)):
       path = os.path.join(trainingDataDir,filename)
@@ -151,6 +150,9 @@ def save_images(cnt, noise):
           image_array[r:r+GENERATE_SQUARE,c:c+GENERATE_SQUARE] = generated_images[image_count] * 255
           image_count += 1
     
+  if not os.path.isdir(OUTPUT_PATH):
+            os.mkdir(OUTPUT_PATH)
+            
   output_path = os.path.join(OUTPUT_PATH, name_of_output_data)
   if not os.path.isdir(output_path):
       os.mkdir(output_path)
@@ -186,6 +188,7 @@ y_fake = np.zeros((BATCH_SIZE, 1))
 fixed_seed = np.random.normal(0, 1, (PREVIEW_ROWS* PREVIEW_COLS, SEED_SIZE))
 
 cnt = 1
+a = ["start"]
 for epoch in range(EPOCHS):
     idx = np.random.randint(0, training_data.shape[0], BATCH_SIZE)
     x_real = training_data[idx]
@@ -204,7 +207,11 @@ for epoch in range(EPOCHS):
         save_images(cnt, fixed_seed)
         cnt += 1
         print(f"Epoch {epoch}, Discriminator accuarcy: {discriminator_metric[1]}, Generator accuracy: {generator_metric[1]}")
+        a += f"Epoch {epoch}, Discriminator accuarcy: {discriminator_metric[1]}, Generator accuracy: {generator_metric[1]}"
+        
 
+file1 = open(os.path.join(DATA_PATH, trainingDataName +"SaveData.txt"),"w")
+for b in a:
+  file1.write(b+'\n')
+file1.close()
 generator.save(os.path.join(DATA_PATH, trainingDataName +"_generator.h5"))
-
-
