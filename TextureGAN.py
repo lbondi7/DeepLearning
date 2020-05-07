@@ -14,52 +14,47 @@ from PIL import Image
 from tqdm import tqdm
 import os
 
-GENERATE_RES = 2
-GENERATE_SQUARE = 32 * GENERATE_RES
-IMAGE_CHANNELS = 3
+RESOLUTION_SCALE = 2
+RESOLUTION = 32 * RESOLUTION_SCALE
+RGB_CHANNELS = 3
 
-PREVIEW_ROWS = 1
-PREVIEW_COLS = 1
-PREVIEW_MARGIN = 16
+ROW_COUNT = 1
+COL_COUNT = 1
+IMAGE_MARGIN = 0
 SAVE_FREQ = 10
 
-SEED_SIZE = 100
+SEED_SIZE = 10
 
-EPOCHS = 10000
+EPOCHS = 1000
 BATCH_SIZE = 32
 
 
 DATA_PATH = os.path.dirname(os.path.realpath(__file__)) + "\\dataset"
 OUTPUT_PATH = os.path.dirname(os.path.realpath(__file__)) + "\\generated_images"
 
-name_of_output_data = input("Please enter a name for data\n")
-trainingDataName = input("Please enter a name for the data you want to train from\n")
+name_of_output_data = input("Please enter a name for data, e.g 'generated bricks' \n")
+trainingDataName = input("Please enter a name for the data you want to train from, e.g 'bricks'\n")
 
-#print("Will generate" + str(GENERATE_SQUARE) + "px square images")
-print(f"Will generate {GENERATE_SQUARE}px square images")
 
-#training_binary_path = os.path.join(DATA_PATH,'training_data_{' + str(GENERATE_SQUARE) + '}_{' + str(GENERATE_SQUARE) + '}.npy')
-training_binary_path = os.path.join(DATA_PATH,trainingDataName + f'_{GENERATE_SQUARE}_{GENERATE_SQUARE}.npy')
+training_binary_path = os.path.join(DATA_PATH,trainingDataName + f'_{RESOLUTION}_{RESOLUTION}.npy')
 
 print("Looking for file: "+ training_binary_path)
 
     
 if not os.path.isfile(training_binary_path):
-  print("Loading training images...")
 
   training_data = []
   trainingDataDir = os.path.join(DATA_PATH, trainingDataName)
   for filename in tqdm(os.listdir(trainingDataDir)):
       path = os.path.join(trainingDataDir,filename)
-      image = Image.open(path).resize((GENERATE_SQUARE,GENERATE_SQUARE),Image.ANTIALIAS)
+      image = Image.open(path).resize((RESOLUTION, RESOLUTION),Image.ANTIALIAS)
       training_data.append(np.asarray(image))
-  training_data = np.reshape(training_data,(-1,GENERATE_SQUARE,GENERATE_SQUARE,IMAGE_CHANNELS))
+  training_data = np.reshape(training_data,(-1,RESOLUTION, RESOLUTION,RGB_CHANNELS))
   training_data = training_data / 127.5 - 1.
 
-  print("Saving training image binary...")
   np.save(training_binary_path,training_data)
+  
 else:
-  print("Loading previous training pickle...")
   training_data = np.load(training_binary_path)
 
 def build_generator(seed_size, channels):
@@ -78,7 +73,7 @@ def build_generator(seed_size, channels):
     model.add(BatchNormalization(momentum=0.8))
     model.add(Activation("relu"))
 
-    for i in range(GENERATE_RES):
+    for i in range(RESOLUTION_SCALE):
         model.add(UpSampling2D())
         model.add(Conv2D(128, kernel_size = 3, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
@@ -133,8 +128,8 @@ def build_discriminator(image_shape):
 
 def save_images(cnt, noise):
   image_array = np.full(( 
-      PREVIEW_MARGIN + (PREVIEW_ROWS * (GENERATE_SQUARE+PREVIEW_MARGIN)), 
-      PREVIEW_MARGIN + (PREVIEW_COLS * (GENERATE_SQUARE+PREVIEW_MARGIN)), 3), 
+      IMAGE_MARGIN + (ROW_COUNT * (RESOLUTION+IMAGE_MARGIN)), 
+      IMAGE_MARGIN + (COL_COUNT * (RESOLUTION+IMAGE_MARGIN)), 3), 
       255, dtype=np.uint8)
   
   generated_images = generator.predict(noise)
@@ -142,12 +137,12 @@ def save_images(cnt, noise):
   generated_images = 0.5 * generated_images + 0.5
 
   image_count = 0
-  for row  in range(PREVIEW_ROWS):
-      for col in range(PREVIEW_COLS):
-          r = row * (GENERATE_SQUARE+ 16) + PREVIEW_MARGIN
-          c = col * (GENERATE_SQUARE+ 16) + PREVIEW_MARGIN
-          image_array[r:r+GENERATE_SQUARE,c:c+GENERATE_SQUARE] = generated_images[image_count] * 255
-          image_array[r:r+GENERATE_SQUARE,c:c+GENERATE_SQUARE] = generated_images[image_count] * 255
+  for row  in range(ROW_COUNT):
+      for col in range(COL_COUNT):
+          r = row * (RESOLUTION+ 16) + IMAGE_MARGIN
+          c = col * (RESOLUTION+ 16) + IMAGE_MARGIN
+          image_array[r:r+RESOLUTION,c:c+RESOLUTION] = generated_images[image_count] * 255
+          image_array[r:r+RESOLUTION,c:c+RESOLUTION] = generated_images[image_count] * 255
           image_count += 1
     
   if not os.path.isdir(OUTPUT_PATH):
@@ -164,12 +159,12 @@ def save_images(cnt, noise):
   im.save(filename)
 
 
-image_shape = (GENERATE_SQUARE, GENERATE_SQUARE, IMAGE_CHANNELS)
+image_shape = (RESOLUTION, RESOLUTION, RGB_CHANNELS)
 optimizer = Adam(1.5e-4, 0.5)
 
 discriminator = build_discriminator(image_shape)
 discriminator.compile(loss = "binary_crossentropy", optimizer=optimizer, metrics=["accuracy"])
-generator = build_generator(SEED_SIZE, IMAGE_CHANNELS)
+generator = build_generator(SEED_SIZE, RGB_CHANNELS)
 
 random_input = Input(shape=(SEED_SIZE,))
 
@@ -185,7 +180,7 @@ combined.compile(loss="binary_crossentropy", optimizer= optimizer, metrics=["acc
 y_real = np.ones((BATCH_SIZE, 1))
 y_fake = np.zeros((BATCH_SIZE, 1))
 
-fixed_seed = np.random.normal(0, 1, (PREVIEW_ROWS* PREVIEW_COLS, SEED_SIZE))
+fixed_seed = np.random.normal(0, 1, (ROW_COUNT* COL_COUNT, SEED_SIZE))
 
 cnt = 1
 a = ["start"]
